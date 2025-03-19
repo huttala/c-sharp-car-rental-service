@@ -1,0 +1,38 @@
+# Build results
+bin/
+obj/
+/packages/
+
+# Visual Studio files
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+*.pfx
+*.publishsettings
+orleans.codegen.cs
+
+# Visual Studio Code
+.vscode/
+.history/
+*.code-workspace
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+*.DotSettings.user
+riderModule.iml
+/_ReSharper.Caches/
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Misc
+[Tt]humbs.db
+*.DS_Store

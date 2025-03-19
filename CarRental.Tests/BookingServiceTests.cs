@@ -1,3 +1,4 @@
+using CarRental.Application.Configuration;
 using CarRental.Application.DTOs.Booking;
 using CarRental.Application.Services;
 using CarRental.Domain.Enums;
@@ -7,6 +8,7 @@ using FluentAssertions;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.Xunit;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit.Abstractions;
 
@@ -19,6 +21,7 @@ public class BookingServiceTests
     private readonly Mock<IBookingRepository> _bookingRepoMock;
     private readonly Mock<ICustomerRepository> _customerRepoMock;
     private readonly BookingService _bookingService;
+    private readonly Mock<IOptions<PricingConfiguration>> _pricingConfigMock;
     
     public BookingServiceTests(ITestOutputHelper testOutputHelper)
     {
@@ -27,10 +30,25 @@ public class BookingServiceTests
         _bookingRepoMock = new Mock<IBookingRepository>();
         _customerRepoMock = new Mock<ICustomerRepository>();
         
+        // Create and set up your pricing config mock
+        _pricingConfigMock = new Mock<IOptions<PricingConfiguration>>();
+        _pricingConfigMock.Setup(x => x.Value).Returns(new PricingConfiguration
+        {
+            BaseDailyPrice = 600,
+            BaseKmPrice = 20,
+            Multipliers = new PricingMultipliers
+            {
+                SmallCar = new VehicleTypeMultiplier { DailyRate = 1.0m, KmRate = 0.0m },
+                CombiCar = new VehicleTypeMultiplier { DailyRate = 1.3m, KmRate = 1.0m },
+                Truck = new VehicleTypeMultiplier { DailyRate = 1.5m, KmRate = 1.5m }
+            }
+        });
+        
         _bookingService = new BookingService(
             _vehicleRepoMock.Object,
             _bookingRepoMock.Object,
-            _customerRepoMock.Object);
+            _customerRepoMock.Object,
+            _pricingConfigMock.Object);
     }
     
     [Fact]
@@ -175,12 +193,17 @@ public class BookingServiceTests
         
         var vehicle = new Vehicle("TEST", VehicleType.SmallCar, 1000);
         
+        var daysRented = 2;
+        var expectedCost = _pricingConfigMock.Object.Value.BaseDailyPrice * daysRented * 
+                           _pricingConfigMock.Object.Value.Multipliers.SmallCar.DailyRate;
+
+        
         // Act
-        var totalCost = BookingService.CalculateTotalCost(booking, vehicle);
+        var totalCost = _bookingService.CalculateTotalCost(booking, vehicle);
         
         // Assert
         // Base daily price 600 * 2 days = 1200 
-        totalCost.Should().Be(1200);
+        totalCost.Should().Be(expectedCost);
     }
 
     [Fact]
@@ -192,12 +215,20 @@ public class BookingServiceTests
         
         var vehicle = new Vehicle("TEST", VehicleType.CombiCar, 1000);
         
+        var daysRented = 3;
+        var kmTraveled = 300;
+        var expectedCost = (_pricingConfigMock.Object.Value.BaseDailyPrice * daysRented * 
+                            _pricingConfigMock.Object.Value.Multipliers.CombiCar.DailyRate) +
+                           (_pricingConfigMock.Object.Value.BaseKmPrice * kmTraveled * 
+                            _pricingConfigMock.Object.Value.Multipliers.CombiCar.KmRate);
+
+        
         // Act
-        var totalCost = BookingService.CalculateTotalCost(booking, vehicle);
+        var totalCost = _bookingService.CalculateTotalCost(booking, vehicle);
         
         // Assert
         // (600 * 3 days * 1.3) + (20 * 300km) = 2340 + 6000 = 8340
-        totalCost.Should().Be(8340);
+        totalCost.Should().Be(expectedCost);
     }
 
     [Fact]
@@ -209,12 +240,20 @@ public class BookingServiceTests
         
         var vehicle = new Vehicle("TEST", VehicleType.Truck, 1000);
         
+        var daysRented = 2;
+        var kmTraveled = 100;
+        var expectedCost = (_pricingConfigMock.Object.Value.BaseDailyPrice * daysRented * 
+                            _pricingConfigMock.Object.Value.Multipliers.Truck.DailyRate) +
+                           (_pricingConfigMock.Object.Value.BaseKmPrice * kmTraveled * 
+                            _pricingConfigMock.Object.Value.Multipliers.Truck.KmRate);
+
+        
         // Act
-        var totalCost = BookingService.CalculateTotalCost(booking, vehicle);
+        var totalCost = _bookingService.CalculateTotalCost(booking, vehicle);
         
         // Assert
         // (600 * 2 days * 1.5) + (20 * 100km * 1.5) = 1800 + 3000 = 4800
-        totalCost.Should().Be(4800);
+        totalCost.Should().Be(expectedCost);
     }
 
     [Fact]

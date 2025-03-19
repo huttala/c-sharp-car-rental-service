@@ -1,10 +1,12 @@
 using System.Reflection.Metadata.Ecma335;
+using CarRental.Application.Configuration;
 using CarRental.Application.DTOs.Booking;
 using CarRental.Application.DTOs.Vehicle;
 using CarRental.Application.Mappings.BookingMappings;
 using CarRental.Domain.Enums;
 using CarRental.Domain.Model;
 using CarRental.Domain.Repositories;
+using Microsoft.Extensions.Options;
 
 namespace CarRental.Application.Services;
 
@@ -23,16 +25,19 @@ public class BookingService : IBookingService
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IBookingRepository _bookingRepository;
     private readonly ICustomerRepository _customerRepository;
+    private readonly PricingConfiguration _pricingConfig;
     private static readonly Random _random = new Random();
     
     public BookingService(IVehicleRepository vehicleRepository, 
         IBookingRepository bookingRepository,
-        ICustomerRepository customerRepository
+        ICustomerRepository customerRepository,
+        IOptions<PricingConfiguration> pricingConfig
         )
     {
         _vehicleRepository = vehicleRepository;
         _bookingRepository = bookingRepository;
         _customerRepository = customerRepository;
+        _pricingConfig = pricingConfig.Value;
     }
     
     public async Task<BookingDTO> GetBookingById(Guid id)
@@ -113,21 +118,7 @@ public class BookingService : IBookingService
         await _bookingRepository.DeleteBookingAsync(booking, vehicle);
     }
     
-    public static string GenerateBookingNumber(string licensePlate)
-    {
-        if (!VehicleService.ValidLicensePlate(licensePlate))
-        {
-            throw new ArgumentException($"Invalid license plate '{licensePlate}'");
-        }
-        var randomNumber = _random.Next(10000, 100000);
-        var randomChars = new string(Enumerable.Repeat("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 5)
-            .Select(s => s[_random.Next(s.Length)])
-            .ToArray());
-
-        return $"{licensePlate}-{randomNumber}-{randomChars}";
-    }
-    
-    public static decimal CalculateTotalCost(Booking booking,  Vehicle vehicle)
+    public decimal CalculateTotalCost(Booking booking,  Vehicle vehicle)
     {
         if (booking.ReturnedVehicleMileage == null)
             throw new ArgumentException("ReturnedVehicleMileage cannot be null");
@@ -135,8 +126,11 @@ public class BookingService : IBookingService
             throw new ArgumentException("ReturnedDateTime cannot be null");
         
         // Base rates (just took some since there was none specified)
-        decimal baseDailyPrice = 600;
-        decimal baseKmPrice = 20;
+        decimal baseDailyPrice = _pricingConfig.BaseDailyPrice;
+        decimal baseKmPrice = _pricingConfig.BaseKmPrice;
+        decimal combiMultiplier = _pricingConfig.Multipliers.CombiCar.DailyRate;
+        decimal truckMultiplierDailyPrice = _pricingConfig.Multipliers.Truck.DailyRate;
+        decimal truckMultiplierKmPrice = _pricingConfig.Multipliers.Truck.KmRate;
         
         var traveledDistance = booking.ReturnedVehicleMileage.Value - booking.BookedVehicleMileage;
     
@@ -154,11 +148,11 @@ public class BookingService : IBookingService
                 break;
             
             case VehicleType.CombiCar:
-                totalCost = (baseDailyPrice * daysRented * 1.3m) + (baseKmPrice * traveledDistance);
+                totalCost = (baseDailyPrice * daysRented * combiMultiplier) + (baseKmPrice * traveledDistance);
                 break;
             
             case VehicleType.Truck:
-                totalCost = (baseDailyPrice * daysRented * 1.5m) + (baseKmPrice * traveledDistance * 1.5m);
+                totalCost = (baseDailyPrice * daysRented * truckMultiplierDailyPrice) + (baseKmPrice * traveledDistance * truckMultiplierKmPrice);
                 break;
             
             default:
@@ -167,5 +161,21 @@ public class BookingService : IBookingService
     
         return Math.Round(totalCost, 2); // Round to 2 decimal places
     }
+    
+    public static string GenerateBookingNumber(string licensePlate)
+    {
+        if (!VehicleService.ValidLicensePlate(licensePlate))
+        {
+            throw new ArgumentException($"Invalid license plate '{licensePlate}'");
+        }
+        var randomNumber = _random.Next(10000, 100000);
+        var randomChars = new string(Enumerable.Repeat("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 5)
+            .Select(s => s[_random.Next(s.Length)])
+            .ToArray());
+
+        return $"{licensePlate}-{randomNumber}-{randomChars}";
+    }
+    
+    
     
 }

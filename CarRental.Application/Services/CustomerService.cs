@@ -27,7 +27,7 @@ public class CustomerService : ICustomerService
     {
         var customer = await _customerRepository.GetByIdAsync(id);
         if (customer == null)
-            return null;
+            throw new ArgumentException("Customer not found", nameof(id));
         
         var dto = CustomerMapper.ToDTO(customer);
 
@@ -50,8 +50,7 @@ public class CustomerService : ICustomerService
         
         var customer = new Customer(dto.PersonalNumber, dto.FirstName, dto.LastName, dto.Email, dto.PhoneNumber);
         await _customerRepository.AddAsync(customer);
-        var createdCustomer = await _customerRepository.GetByIdAsync(customer.Id);
-        return CustomerMapper.ToDTO(createdCustomer);
+        return CustomerMapper.ToDTO(customer);
     }
 
     public async Task DeleteCustomer(Guid id)

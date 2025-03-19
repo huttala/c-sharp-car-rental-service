@@ -1,5 +1,6 @@
 using CarRental.Application.DTOs.Vehicle;
 using CarRental.Application.Services;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CarRental.Api.Endpoints;
@@ -55,9 +56,16 @@ public static class VehicleEndpoints
         // Create vehicle
         app.MapPost("/vehicles", async (
             [FromBody] CreateVehicleDTO createDto,
+            [FromServices] IValidator<CreateVehicleDTO> validator,
             [FromServices] IVehicleService vehicleService,
             CancellationToken cancellationToken) =>
         {
+            var validationResult = await validator.ValidateAsync(createDto, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return Results.ValidationProblem(validationResult.ToDictionary());
+            }
+            
             try
             {
                 var createdVehicle = await vehicleService.AddVehicle(createDto);

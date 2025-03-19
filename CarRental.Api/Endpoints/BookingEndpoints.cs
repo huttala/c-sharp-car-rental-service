@@ -1,6 +1,8 @@
 using CarRental.Application.DTOs.Booking;
 using CarRental.Application.DTOs.Vehicle;
 using CarRental.Application.Services;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CarRental.Api.Endpoints;
@@ -51,12 +53,19 @@ public static class BookingEndpoints
             .WithName("GetBookingById")
             .WithOpenApi()
             .WithTags("Bookings");
+        
         // Create booking
         app.MapPost("/bookings", async (
                 [FromBody] CreateBookingDTO createDto,
+                [FromServices] IValidator<CreateBookingDTO> validator,
                 [FromServices] IBookingService bookingService,
                 CancellationToken cancellationToken) =>
             {
+                var validationResult = await validator.ValidateAsync(createDto, cancellationToken);
+                if (!validationResult.IsValid)
+                {
+                    return Results.ValidationProblem(validationResult.ToDictionary());
+                }
                 try
                 {
                     var createdBooking = await bookingService.CreateBooking(createDto);

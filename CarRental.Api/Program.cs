@@ -2,12 +2,18 @@ using System.Reflection;
 using System.Text.Json.Serialization;
 using CarRental.Api;
 using CarRental.Api.Endpoints;
+using CarRental.Application.DTOs.Booking;
+using CarRental.Application.DTOs.Customer;
+using CarRental.Application.DTOs.Vehicle;
 using CarRental.Application.Services;
+using CarRental.Application.Validators;
 using CarRental.Domain.Repositories;
 using CarRental.Infrastructure.DbConfiguration;
 using CarRental.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 // Configure database
@@ -46,6 +52,16 @@ builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
+
+// Add FluentValidation
+// builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddScoped<IValidator<CreateBookingDTO>, CreateBookingDtoValidator>();
+builder.Services.AddScoped<IValidator<CreateCustomerDTO>, CreateCustomerDtoValidator>();
+builder.Services.AddScoped<IValidator<CreateVehicleDTO>, CreateVehicleDtoValidator>();
+// builder.Services.AddValidatorsFromAssemblyContaining<CreateBookingDtoValidator>();
+// builder.Services.AddValidatorsFromAssemblyContaining<CreateCustomerDtoValidator>();
+// builder.Services.AddValidatorsFromAssemblyContaining<CreateVehicleDtoValidator>();
+// builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 // Configure health checks to include database
 builder.Services.AddHealthChecks();
